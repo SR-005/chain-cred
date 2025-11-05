@@ -10,14 +10,14 @@ MYADDRESS = Web3.to_checksum_address(os.getenv("METAMASK"))
 SECRETCODE = os.getenv("METAMASK_SECRETKEY")
 
 #Read the Smart Contract
-with open("./testverification-sm/test-verification.sol","r") as file:
-    testverificationfile=file.read()
+with open("./CredChain.sol","r") as file:
+    chaincredfile=file.read()
 
 #complie the smart contract - default lines
 compiledsol = compile_standard(
     {
         "language":"Solidity",
-        "sources":{"test-verification.sol":{"content":testverificationfile}},
+        "sources":{"chaincred.sol":{"content":chaincredfile}},
         "settings":{
             "outputSelection":  {
                 "*":{"*": ["abi","metadata","evm.bytecode","evm.sourceMap"]}
@@ -27,22 +27,21 @@ compiledsol = compile_standard(
 )
 
 #move the compiled code into a new file 'compiledcode.json'
-with open("./testverification-sm/compiledtvcode.json","w") as file:
+with open("./compiledcccode.json","w") as file:
     json.dump(compiledsol,file)
 
 #fetching bytecode from the compiled Smart Contract
-bytecode=compiledsol["contracts"]["test-verification.sol"]["TestVerification"]["evm"]["bytecode"]["object"]
+bytecode=compiledsol["contracts"]["chaincred.sol"]["CredChain"]["evm"]["bytecode"]["object"]
 
 #get abi from the compiled Smart Contract
-abi=compiledsol["contracts"]["test-verification.sol"]["TestVerification"]["abi"]
-
+abi=compiledsol["contracts"]["chaincred.sol"]["CredChain"]["abi"]
 
 w3 = Web3(Web3.HTTPProvider("https://rpc.api.moonbase.moonbeam.network"))
 chainid=1287
 
 def depoly_contract():
     #creating the contract
-    TestVerification=w3.eth.contract(abi=abi,bytecode=bytecode)
+    CredChain=w3.eth.contract(abi=abi,bytecode=bytecode)
     print("Contract Created")
 
     balance = w3.eth.get_balance(MYADDRESS)
@@ -51,7 +50,7 @@ def depoly_contract():
     #fetching nonce(latest transaction) of our wallet
     nonce=w3.eth.get_transaction_count(MYADDRESS,"pending")
 
-    transaction = TestVerification.constructor().build_transaction({
+    transaction = CredChain.constructor().build_transaction({
         "chainId": chainid,
         "from": MYADDRESS,
         "nonce": nonce,
@@ -67,11 +66,14 @@ def depoly_contract():
     print(transactionhash)
     transactionreceipt=w3.eth.wait_for_transaction_receipt(transactionhash)
     print("Contract Deployed")
+    print("Transction Receipt: ",transactionreceipt)
     return transactionreceipt
 
 transactionreceipt=depoly_contract()     #function call for deploy contract
 
-smaddress="0xC6ca2af3B65E30497F9b6B785b6fb3E5327141F9"
+smaddress="0xA5c04406A334Efadd09c9dab95a5faff56c360bb"
+address=transactionreceipt.contractAddress
+print("Smart Contract Address: ",address)
 #Fetching Smart Contract Address
 testverificationcontract=w3.eth.contract(address=transactionreceipt.contractAddress, abi=abi)
 print(testverificationcontract.functions.isVerified("0xCEaaa7a684f5FBBDF41B865e2945142340D82029").call())
@@ -81,7 +83,6 @@ print("Balance:", w3.from_wei(balance, "ether"), "DEV")
 
 #fetching nonce(latest transaction) of our wallet
 nonce=w3.eth.get_transaction_count(MYADDRESS,"pending")
-
 
 verifyaddress_transaction=testverificationcontract.functions.setVerified(MYADDRESS).build_transaction(       #call function by building a transaction
     {"chainId":chainid,

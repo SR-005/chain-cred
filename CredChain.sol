@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "../node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "../node_modules/@openzeppelin/contracts/access/Ownable.sol";
+import "./node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "./node_modules/@openzeppelin/contracts/access/Ownable.sol";
 
 
 contract CredChain is ERC721URIStorage, Ownable {
@@ -30,8 +30,8 @@ contract CredChain is ERC721URIStorage, Ownable {
     event ProjectVerified(address indexed user, uint index, bool status);
     event ReviewAdded(address indexed freelancer, address indexed reviewer, uint8 rating);
 
-    constructor() ERC721("CredChainBadge", "CCB") {
-        tokenCounter = 1; // start tokens at 1
+  constructor() ERC721("CredChainBadge", "CCB") Ownable() {
+    tokenCounter = 1;
     }
 
     // Admin/back-end calls to set a user as verified (after off-chain verification)
