@@ -71,6 +71,7 @@ def depoly_contract():
     print("Contract Deployed")
     print("Transction Receipt: ",transactionreceipt)
     address=transactionreceipt.contractAddress
+    print("Smart Contract Address: ",address)
     return address,abi
 
 
