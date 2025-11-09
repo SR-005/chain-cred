@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CredChain Demo</title>
+</head>
+<body>
+  <h2>CredChain (Demo)</h2>
+  <button id="connect">Connect MetaMask</button>
+  <div id="addr"></div>
+
+  <hr>
+  <h3>Verify Identity (GitHub/LinkedIn)</h3>
+  <input id="profile" placeholder="https://github.com/username"/>
+  <button id="verify">Verify</button>
+
+  <hr>
+  <h3>Submit Project (Builder)</h3>
+  <input id="proj" placeholder="https://raw.githubusercontent.com/..."/>
+  <input id="client" placeholder="0xClientWalletAddress"/>
+  <button id="submit">Submit Project</button>
+
+  <hr>
+  <h3>Client: View My Projects</h3>
+  <button id="viewClientProjects">View My Projects</button>
+  <pre id="clientProjects"></pre>
+
+  <hr>
+  <h3>Client: Submit Review</h3>
+  <input id="freelancer" placeholder="0xFreelancerWallet"/>
+  <input id="rating" type="number" placeholder="Rating (1-5)" min="1" max="5"/>
+  <input id="comment" placeholder="Comment IPFS hash (optional)"/>
+  <button id="submitReview">Submit Review</button>
+
+  <hr>
+  <h3>Admin: Run Pending Verifications</h3>
+  <button id="runPending">Run Verify Pending</button>
+
+  <hr>
+  <h3>Admin: Manual Badge Mint</h3>
+  <input id="mintWallet" placeholder="0xUserWalletAddress"/>
+  <input id="mintURI" placeholder="ipfs://BadgeURI"/>
+  <button id="mintManual">Mint Badge</button>
+
+<script>
+let account;
+
+// -------- Connect MetaMask --------
+document.getElementById('connect').onclick = async () => {
+  if (window.ethereum) {
+    const accs = await ethereum.request({ method: 'eth_requestAccounts' });
+    account = accs[0];
+    document.getElementById('addr').innerText = 'Connected: ' + account;
+  } else {
+    alert('Install MetaMask');
+  }
+};
+
+// -------- Verify User --------
+document.getElementById('verify').onclick = async () => {
+  if (!account) return alert('Connect first');
+  const profile = document.getElementById('profile').value;
+  const res = await fetch('http://localhost:5000/verify_user', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({wallet: account, profile_link: profile})
+  });
+  const data = await res.json();
+  alert(JSON.stringify(data, null, 2));
+};
+
+// -------- Submit Project (Builder) --------
+document.getElementById('submit').onclick = async () => {
+  if (!account) return alert('Connect first');
+  const link = document.getElementById('proj').value.trim();
+  const client = document.getElementById('client').value.trim();
+  if (!client) return alert('Enter client wallet address');
+  const res = await fetch('http://localhost:5000/submit_project', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({wallet: account, client, link})
+  });
+  const data = await res.json();
+  alert('Project Submission Result:\n' + JSON.stringify(data, null, 2));
+};
+
+// -------- Client: View My Projects --------
+document.getElementById('viewClientProjects').onclick = async () => {
+  if (!account) return alert('Connect first');
+  const res = await fetch(`http://localhost:5000/get_projects_for_client/${account}`);
+  const data = await res.json();
+  document.getElementById('clientProjects').innerText = JSON.stringify(data, null, 2);
+};
+
+// -------- Client: Submit Review --------
+document.getElementById('submitReview').onclick = async () => {
+  if (!account) return alert('Connect first');
+  const freelancer = document.getElementById('freelancer').value.trim();
+  const rating = parseInt(document.getElementById('rating').value);
+  const comment_hash = document.getElementById('comment').value.trim();
+  if (!freelancer || !rating) return alert('Enter freelancer and rating');
+  const res = await fetch('http://localhost:5000/submit_review', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({freelancer, rating, comment_hash})
+  });
+  const data = await res.json();
+  alert('Review Result:\n' + JSON.stringify(data, null, 2));
+};
+
+// -------- Run Verify Pending (Admin only) --------
+document.getElementById('runPending').onclick = async () => {
+  const res = await fetch('http://localhost:5000/run_verify_pending', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'}
+  });
+  const data = await res.json();
+  alert('Verification Results:\n' + JSON.stringify(data, null, 2));
+};
+
+// -------- Mint Badge Manually (Admin only) --------
+document.getElementById('mintManual').onclick = async () => {
+  const wallet = document.getElementById('mintWallet').value.trim();
+  const uri = document.getElementById('mintURI').value.trim();
+  const res = await fetch('http://localhost:5000/mint_manual', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({wallet, uri})
+  });
+  const data = await res.json();
+  alert('Mint result:\n' + JSON.stringify(data, null, 2));
+};
+</script>
+</body>
+</html>
