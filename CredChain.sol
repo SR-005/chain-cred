@@ -4,7 +4,6 @@ pragma solidity ^0.8.17;
 import "./node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "./node_modules/@openzeppelin/contracts/access/Ownable.sol";
 
-
 contract CredChain is ERC721URIStorage, Ownable {
     struct Project {
         address client;
@@ -15,9 +14,11 @@ contract CredChain is ERC721URIStorage, Ownable {
 
     struct Review {
         address reviewer;
+        uint projectIndex;   // link to userProjects[user][index]
         uint8 rating;
-        string commentHash; // could be IPFS
+        string commentHash;
     }
+
 
     mapping(address => bool) public verifiedUsers;
     mapping(address => Project[]) public userProjects;
@@ -62,11 +63,51 @@ contract CredChain is ERC721URIStorage, Ownable {
     }
 
     // Clients (verified) submit reviews; reviewer must be verified user
-    function submitReview(address freelancer, uint8 rating, string calldata commentHash) external {
+    function submitReview(address freelancer,uint projectIndex,uint8 rating,string calldata commentHash) external {
         require(verifiedUsers[msg.sender], "Reviewer not verified");
-        userReviews[freelancer].push(Review(msg.sender, rating, commentHash));
+        require(projectIndex < userProjects[freelancer].length, "Invalid project index");
+
+        Project storage p = userProjects[freelancer][projectIndex];
+        require(p.client == msg.sender, "Not authorized to review this project");
+
+        userReviews[freelancer].push(
+            Review(msg.sender, projectIndex, rating, commentHash)
+        );
+
         emit ReviewAdded(freelancer, msg.sender, rating);
     }
+
+
+    function getProjectWithReviews(address user, uint index)external view returns (
+            address client,
+            string memory projectHash,
+            string memory link,
+            bool verified,
+            Review[] memory reviews
+        )
+    {
+        Project storage p = userProjects[user][index];
+
+        // Count how many reviews correspond to this project
+        uint count = 0;
+        for (uint i = 0; i < userReviews[user].length; i++) {
+            if (userReviews[user][i].projectIndex == index) {
+                count++;
+            }
+        }
+
+        Review[] memory matched = new Review[](count);
+        uint j = 0;
+        for (uint i = 0; i < userReviews[user].length; i++) {
+            if (userReviews[user][i].projectIndex == index) {
+                matched[j] = userReviews[user][i];
+                j++;
+            }
+        }
+
+        return (p.client, p.projectHash, p.link, p.verified, matched);
+    }
+
 
     // Internal badge logic — auto-mint on milestones
     function _checkAndMintBadge(address user) internal {
