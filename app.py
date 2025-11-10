@@ -137,118 +137,61 @@ def verify_user():
 #-----------------------------------------------------------ADD PROJECT-----------------------------------------------------------
 @app.route("/submit_project", methods=["POST"])
 def submit_project():
+    """Adds a project to the blockchain. Auto-verification is handled inside the smart contract."""
     print("Submit Project Function Triggered")
-    """
-    JSON:
-    { "wallet":"0x..", "link":"https://raw.githubusercontent.com/.. or https://github.com/.. " }
-    """
     data = request.get_json()
     wallet = data.get("wallet")
     client = data.get("client")
     link = data.get("link")
+
+    if not wallet or not link or not client:
+        return jsonify({"error": "wallet, client, and link required"}), 400
+
     deploysmartcontract()
-    if not wallet or not link:
-        return jsonify({"error":"wallet and link required"}), 400
 
     # Normalize GitHub link
     if "github.com" in link and "raw.githubusercontent.com" not in link:
         link = link.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
 
-    # Fetch content (for repo, fetching raw or zip is tricky; simple GET for demo)
+    # Fetch content & hash
     try:
         r = requests.get(link, timeout=12)
         if r.status_code != 200:
-            return jsonify({"error":"provided link not reachable"}), 400
+            return jsonify({"error": "provided link not reachable"}), 400
         content = r.content
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-    # Compute SHA-256 hex
     h = hashlib.sha256(content).hexdigest()
 
-    # Call addProject
+    # Call addProject (auto-verifies inside contract)
     try:
-        feature = contract.functions.addProject(Web3.to_checksum_address(wallet),Web3.to_checksum_address(client), h, link)
+        feature = contract.functions.addProject(
+            Web3.to_checksum_address(wallet),
+            Web3.to_checksum_address(client),
+            h,
+            link
+        )
         receipt = callfeature(feature)
-        print("Github user verification: ", receipt)
+        print("Project added + verified automatically:", receipt)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"addProject failed: {str(e)}"}), 500
 
-    # Determine index (getProjectCount returns number of projects)
+    # Track builder for dashboard use
+    KNOWN_BUILDERS.add(wallet)
+    save_builders()
+
     try:
         count = contract.functions.getProjectCount(Web3.to_checksum_address(wallet)).call()
         index = count - 1
     except Exception:
         index = None
 
-    load_pending()  # Load existing pending projects
-    PENDING_PROJECTS.append({"user": wallet, "link": link, "hash": h, "index": index})
-    save_pending()  # Save updated pending list
-    KNOWN_BUILDERS.add(wallet)
-    save_builders()
-    return jsonify({"status": "added", "tx": receipt.transactionHash.hex(), "index": index})
-
-
-#-----------------------------------------------------------VERIFY PROJECT-----------------------------------------------------------
-@app.route("/run_verify_pending", methods=["POST"])
-def run_verify_pending():
-    print("Project Verification Function Triggered")
-    load_pending()  # Load current pending list
-    print("Current pending projects:", PENDING_PROJECTS)
-    print("\n")
-
-    results = []
-    to_remove = []
-    for i, p in enumerate(list(PENDING_PROJECTS)):
-        try:
-            r = requests.get(p["link"], timeout=12)
-            if r.status_code == 200:
-                new_hash = hashlib.sha256(r.content).hexdigest()
-                print("Rechecking project:", p["link"])
-                print("Stored hash:", p["hash"])
-                print("Fetched new hash:", new_hash)
-                print("Match:", new_hash == p["hash"])
-                verified = (new_hash == p["hash"])
-                if verified:
-                    fn = contract.functions.verifyProject(Web3.to_checksum_address(p["user"]), p["index"], True)
-                    receipt = callfeature(fn)
-                    results.append({
-                        "user": p["user"],
-                        "index": p["index"],
-                        "verified": True,
-                        "tx": receipt.transactionHash.hex()
-                    })
-                    to_remove.append(i)
-                else:
-                    results.append({"user": p["user"], "index": p["index"], "verified": False})
-            else:
-                results.append({"user": p["user"], "index": p["index"], "error": "link unreachable"})
-        except Exception as e:
-            results.append({"user": p["user"], "index": p["index"], "error": str(e)})
-
-    for idx in sorted(to_remove, reverse=True):
-        PENDING_PROJECTS.pop(idx)
-
-    save_pending()  # Save updated list after verification
-
-    return jsonify({"results": results})
-
-
-#-----------------------------------------------------------MINT BADGES-----------------------------------------------------------
-@app.route("/mint_manual", methods=["POST"])
-def mint_manual():
-    # Admin manual badge mint
-    data = request.get_json()
-    wallet = data.get("wallet")
-    uri = data.get("uri")
-    if not wallet or not uri:
-        return jsonify({"error":"wallet and uri required"}), 400
-    try:
-        fn = contract.functions.checkAndMintBadge(Web3.to_checksum_address(wallet))
-        receipt = callfeature(fn)
-        return jsonify({"tx": receipt.transactionHash.hex()})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "status": "added_and_verified",
+        "tx": receipt.transactionHash.hex(),
+        "index": index
+    })
 
 
 #-----------------------------------------------------------CLIENT PROJECTS-----------------------------------------------------------
@@ -290,25 +233,44 @@ def submit_review():
     receipt = callfeature(fn)
     return jsonify({"tx": receipt.transactionHash.hex()})
 
-#-----------------------------------------------------------GET PROJECT WITH REVIEWS-----------------------------------------------------------
-@app.route("/get_project_with_reviews", methods=["GET"])
-def get_project_with_reviews():
-    builder = request.args.get("builder")
-    index = request.args.get("index", type=int)
-
-    if not builder or index is None:
-        return jsonify({"error": "builder and index query params required"}), 400
-
+# ----------------------------------------------------------- GET ALL PROJECTS (BUILDER) -----------------------------------------------------------
+@app.route("/get_all_projects/<builder>", methods=["GET"])
+def get_all_projects(builder):
+    """Fetch all projects created by a specific builder (freelancer)."""
     try:
         deploysmartcontract()
-        result = contract.functions.getProjectWithReviews(Web3.to_checksum_address(builder), index).call()
+        result = contract.functions.getAllProjects(Web3.to_checksum_address(builder)).call()
 
-        client = result[0]
-        project_hash = result[1]
-        link = result[2]
-        verified = result[3]
-        reviews = result[4]
+        # Format the data into readable JSON
+        formatted_projects = [
+            {
+                "client": p[0],
+                "projectHash": p[1],
+                "link": p[2],
+                "verified": p[3]
+            }
+            for p in result
+        ]
 
+        return jsonify({
+            "builder": builder,
+            "projectCount": len(formatted_projects),
+            "projects": formatted_projects
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ----------------------------------------------------------- GET ALL REVIEWS (BUILDER) -----------------------------------------------------------
+@app.route("/get_all_reviews/<builder>", methods=["GET"])
+def get_all_reviews(builder):
+    """Fetch all reviews received by a specific freelancer."""
+    try:
+        deploysmartcontract()
+        result = contract.functions.getAllReviews(Web3.to_checksum_address(builder)).call()
+
+        # Format reviews for readability
         formatted_reviews = [
             {
                 "reviewer": r[0],
@@ -316,16 +278,12 @@ def get_project_with_reviews():
                 "rating": r[2],
                 "commentHash": r[3]
             }
-            for r in reviews
+            for r in result
         ]
 
         return jsonify({
             "builder": builder,
-            "index": index,
-            "client": client,
-            "projectHash": project_hash,
-            "link": link,
-            "verified": verified,
+            "reviewCount": len(formatted_reviews),
             "reviews": formatted_reviews
         })
 

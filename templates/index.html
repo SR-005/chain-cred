@@ -38,16 +38,6 @@
       color: #e0e0e0;
     }
     textarea { width: 400px; height: 80px; }
-    pre {
-      text-align: left;
-      width: 80%;
-      margin: 20px auto;
-      background: #111;
-      padding: 15px;
-      border-radius: 10px;
-      overflow-x: auto;
-      color: #0f0;
-    }
     .section {
       border: 1px solid #222;
       padding: 15px;
@@ -55,6 +45,36 @@
       width: 80%;
       border-radius: 12px;
       background: #121212;
+    }
+    .project-card {
+      border: 1px solid #333;
+      padding: 15px;
+      margin: 15px auto;
+      width: 80%;
+      text-align: left;
+      border-radius: 10px;
+      background: #1a1a1a;
+    }
+    .profile-header {
+      background: #111;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .profile-pic {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      margin-bottom: 10px;
+      object-fit: cover;
+      border: 2px solid #00ffc8;
+    }
+    a {
+      color: #00ffc8;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
@@ -75,7 +95,7 @@
     <input id="profile_pic" placeholder="Profile Pic IPFS URI (optional)"><br>
     <button id="saveProfile">Save / Update Profile</button>
     <button id="loadProfile">View My Profile</button>
-    <pre id="profileData"></pre>
+    <div id="profileDisplay"></div>
   </div>
 
   <hr>
@@ -93,30 +113,6 @@
 
   <hr>
 
-  <h3>Client: View My Projects</h3>
-  <button id="viewClientProjects">View My Projects</button>
-  <pre id="clientProjects"></pre>
-
-  <hr>
-
-  <h3>Client: Submit Review</h3>
-  <input id="freelancer" placeholder="0xFreelancerWallet"/>
-  <input id="projectIndex" type="number" placeholder="Project Index" min="0"/>
-  <input id="rating" type="number" placeholder="Rating (1-5)" min="1" max="5"/>
-  <input id="comment" placeholder="Comment IPFS hash (optional)"/>
-  <button id="submitReview">Submit Review</button>
-
-  <hr>
-
-  <h3>Admin: Run Pending Verifications</h3>
-  <button id="runPending">Run Verify Pending</button>
-
-  <hr>
-
-  <h3>Admin: Manual Badge Mint</h3>
-  <input id="mintWallet" placeholder="0xUserWalletAddress"/>
-  <input id="mintURI" placeholder="ipfs://BadgeURI"/>
-  <button id="mintManual">Mint Badge</button>
 
 <script>
 let account;
@@ -127,9 +123,7 @@ document.getElementById('connect').onclick = async () => {
     const accs = await ethereum.request({ method: 'eth_requestAccounts' });
     account = accs[0];
     document.getElementById('addr').innerText = 'Connected: ' + account;
-
-    // Auto-load profile if exists
-    loadProfile();
+    loadProfile(); // auto-load on connect
   } else {
     alert('Install MetaMask');
   }
@@ -138,16 +132,66 @@ document.getElementById('connect').onclick = async () => {
 // ----------------- PROFILE MANAGEMENT -----------------
 async function loadProfile() {
   if (!account) return;
+  const display = document.getElementById('profileDisplay');
+  display.innerHTML = "<p>Loading profile...</p>";
+
   try {
-    const res = await fetch(`http://localhost:5000/get_profile/${account}`);
-    if (res.ok) {
-      const data = await res.json();
-      document.getElementById('profileData').innerText = JSON.stringify(data, null, 2);
-    } else {
-      document.getElementById('profileData').innerText = "No profile found.";
+    const profileRes = await fetch(`http://localhost:5000/get_profile/${account}`);
+    if (!profileRes.ok) {
+      display.innerHTML = "<p>No profile found for this wallet.</p>";
+      return;
     }
+    const profile = await profileRes.json();
+
+    // Fetch freelancer's projects
+    const projectsRes = await fetch(`http://localhost:5000/get_projects_for_client/${account}`);
+    const allProjects = await projectsRes.json();
+    const freelancerProjects = allProjects.filter(p => p.builder?.toLowerCase() === account.toLowerCase());
+
+    // Build HTML
+    let html = `
+      <div class="profile-header">
+        ${profile.profile_pic ? `<img src="${profile.profile_pic}" class="profile-pic">` : ""}
+        <h3>${profile.name || "Unnamed Freelancer"}</h3>
+        <p>${profile.bio || "No bio available."}</p>
+        <p><b>Skills:</b> ${(profile.skills || []).join(", ")}</p>
+        <p>
+          ${profile.github ? `<a href="${profile.github}" target="_blank">GitHub</a>` : ""}
+          ${profile.linkedin ? ` | <a href="${profile.linkedin}" target="_blank">LinkedIn</a>` : ""}
+        </p>
+      </div>
+    `;
+
+    if (freelancerProjects.length > 0) {
+      html += `<h3>📁 Projects Completed</h3>`;
+      for (const [index, proj] of freelancerProjects.entries()) {
+        try {
+          const detailRes = await fetch(
+            `http://localhost:5000/get_project_with_reviews?builder=${account}&index=${index}`
+          );
+          const detail = await detailRes.json();
+          html += `
+            <div class="project-card">
+              <b>Project #${index + 1}</b><br>
+              <b>Client:</b> ${detail.client}<br>
+              <b>Link:</b> <a href="${detail.link}" target="_blank">${detail.link}</a><br>
+              <b>Verified:</b> ${detail.verified ? "✅ Yes" : "❌ No"}<br>
+              <b>Project Hash:</b> ${detail.projectHash}<br>
+              <b>Reviews:</b>
+              <pre style="background:#0e0e0e; color:#0f0; padding:8px; border-radius:8px;">${JSON.stringify(detail.reviews, null, 2)}</pre>
+            </div>`;
+        } catch (err) {
+          console.error("Error fetching project details:", err);
+        }
+      }
+    } else {
+      html += `<p>No projects found yet.</p>`;
+    }
+
+    display.innerHTML = html;
   } catch (err) {
     console.error(err);
+    display.innerHTML = "<p>Error loading profile.</p>";
   }
 }
 
@@ -198,59 +242,9 @@ document.getElementById('submit').onclick = async () => {
   });
   const data = await res.json();
   alert('Project Submission Result:\n' + JSON.stringify(data, null, 2));
+  loadProfile(); // refresh to show new project
 };
 
-// -------- Client: View My Projects --------
-document.getElementById('viewClientProjects').onclick = async () => {
-  if (!account) return alert('Connect first');
-  const res = await fetch(`http://localhost:5000/get_projects_for_client/${account}`);
-  const data = await res.json();
-  document.getElementById('clientProjects').innerText = JSON.stringify(data, null, 2);
-};
-
-// -------- Client: Submit Review --------
-document.getElementById('submitReview').onclick = async () => {
-  if (!account) return alert('Connect first');
-  const freelancer = document.getElementById('freelancer').value.trim();
-  const project_index = parseInt(document.getElementById('projectIndex').value);
-  const rating = parseInt(document.getElementById('rating').value);
-  const comment_hash = document.getElementById('comment').value.trim();
-
-  if (!freelancer || isNaN(project_index) || isNaN(rating))
-    return alert('Enter all required fields');
-
-  const res = await fetch('http://localhost:5000/submit_review', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({freelancer, project_index, rating, comment_hash})
-  });
-
-  const data = await res.json();
-  alert('Review Result:\n' + JSON.stringify(data, null, 2));
-};
-
-// -------- Run Verify Pending (Admin only) --------
-document.getElementById('runPending').onclick = async () => {
-  const res = await fetch('http://localhost:5000/run_verify_pending', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'}
-  });
-  const data = await res.json();
-  alert('Verification Results:\n' + JSON.stringify(data, null, 2));
-};
-
-// -------- Mint Badge Manually (Admin only) --------
-document.getElementById('mintManual').onclick = async () => {
-  const wallet = document.getElementById('mintWallet').value.trim();
-  const uri = document.getElementById('mintURI').value.trim();
-  const res = await fetch('http://localhost:5000/mint_manual', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({wallet, uri})
-  });
-  const data = await res.json();
-  alert('Mint result:\n' + JSON.stringify(data, null, 2));
-};
 </script>
 </body>
 </html>
