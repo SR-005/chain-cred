@@ -4,26 +4,29 @@ pragma solidity ^0.8.17;
 import "./node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "./node_modules/@openzeppelin/contracts/access/Ownable.sol";
 
+
 contract CredChain is ERC721URIStorage, Ownable {
     struct Project {
         address client;
         string projectHash; // SHA-256 hex
-        string link;        // IPFS/GitHub link
+        string link;
+        // IPFS/GitHub link
         bool verified;
     }
 
     struct Review {
         address reviewer;
-        uint projectIndex;   // link to userProjects[user][index]
+        uint projectIndex;  // link to userProjects[user][index]
         uint8 rating;
         string commentHash;
     }
 
-
+    // --- Mappings ---
     mapping(address => bool) public verifiedUsers;
     mapping(address => Project[]) public userProjects;
     mapping(address => Review[]) public userReviews;
     mapping(address => uint256) public projectCount; // verified project counts
+    mapping(string => bool) private _projectHashExists;// to prevent duplicate additions.
 
     uint256 public tokenCounter;
 
@@ -34,7 +37,7 @@ contract CredChain is ERC721URIStorage, Ownable {
 
   constructor() ERC721("CredChainBadge", "CCB") Ownable() {
     tokenCounter = 1;
-    }
+  }
 
     // Admin/back-end calls to set a user as verified (after off-chain verification)
     function setUserVerified(address user, bool status) external onlyOwner {
@@ -44,21 +47,36 @@ contract CredChain is ERC721URIStorage, Ownable {
 
     // Add project (backend should call this after computing hash)
     function addProject(address user, address client,string calldata projectHash, string calldata link) external onlyOwner {
-    require(verifiedUsers[user], "User not verified");
-    userProjects[user].push(Project(client, projectHash, link, false));
-    emit ProjectAdded(user, userProjects[user].length - 1, projectHash, link);
-}
+        require(verifiedUsers[user], "User not verified");
+        
+        // Prevent duplicate project hash from being added
+        require(!_projectHashExists[projectHash], "Project hash already exists");
+        
+        // Mark hash as existing
+        _projectHashExists[projectHash] = true;
 
+        userProjects[user].push(Project(client, projectHash, link, false));
+        emit ProjectAdded(user, userProjects[user].length - 1, projectHash, link);
+    }
 
     // Backend (verifier) sets project verified flag
     function verifyProject(address user, uint index, bool status) external onlyOwner {
         require(index < userProjects[user].length, "Invalid index");
         Project storage p = userProjects[user][index];
-        p.verified = status;
+
         if (status) {
+            // We only increment count if the project isn't already verified
+            // This prevents counting the same project if this function is called twice
+            require(p.verified == false, "Project already marked as verified");
+
             projectCount[user] += 1;
             _checkAndMintBadge(user);
         }
+        // Note: You may want to add logic for 'status == false'
+        // to *decrease* projectCount[user] if it was already verified.
+        
+        p.verified = status;
+
         emit ProjectVerified(user, index, status);
     }
 
@@ -77,7 +95,7 @@ contract CredChain is ERC721URIStorage, Ownable {
         emit ReviewAdded(freelancer, msg.sender, rating);
     }
 
-
+    // To get a specific project and all its associated reviews
     function getProjectWithReviews(address user, uint index)external view returns (
             address client,
             string memory projectHash,
@@ -88,7 +106,7 @@ contract CredChain is ERC721URIStorage, Ownable {
     {
         Project storage p = userProjects[user][index];
 
-        // Count how many reviews correspond to this project
+        // To count how many reviews correspond to this project
         uint count = 0;
         for (uint i = 0; i < userReviews[user].length; i++) {
             if (userReviews[user][i].projectIndex == index) {
@@ -150,7 +168,7 @@ contract CredChain is ERC721URIStorage, Ownable {
         return userProjects[user].length;
     }
 
-    function getVerifiedProjectCount(address user) external view returns (uint) {
+    function getVerifiedProjectTCount(address user) external view returns (uint) {
         return projectCount[user];
     }
 }
