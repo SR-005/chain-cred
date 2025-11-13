@@ -15,15 +15,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const accs = await ethereum.request({ method: 'eth_requestAccounts' });
                     account = accs[0];
-                    
-                    // Display connected address
-                    const shortAddr = `${account.substring(0, 6)}...${account.substring(account.length - 4)}`;
-                    addrDisplay.innerText = 'Connected: ' + shortAddr;
-                    addrDisplay.classList.remove('hidden'); // Show the address display
+        
                     
                     // Update button text
-                    connectButton.innerText = 'Connected';
+                    connectButton.innerText = 'Disconnet Wallet';
+                    connectButton.addEventListener('click', () => {
                     connectButton.disabled = true;
+                    // Reloads the page immediately
+                    location.reload(); 
+});
 
                 } catch (error) {
                     console.error("User denied account access", error);
