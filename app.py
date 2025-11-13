@@ -110,7 +110,7 @@ def getsmartcontract():                                  #deployment function ca
         out.write(";")
 
     global contract
-    contract=w3.eth.contract(address="0x644268573996Ae7c93852C140C722C0306004387", abi=abi)
+    contract=w3.eth.contract(address="0xeDf137bA1DbB1Bb3c03fc81bDDafb59C78B94422", abi=abi)
 
 #-----------------------------------------------------------CALL FUNCTIONS-----------------------------------------------------------
 def callfeature(feature):
@@ -141,23 +141,21 @@ def callfeature(feature):
 def owner_account():
     return w3.eth.account.from_key(SECRETCODE)
 
-#-----------------------------------------------------------VERIFY USER-----------------------------------------------------------
-@app.route("/verify_freelancer", methods=["POST"])
-def verify_freelancer():
+#-----------------------------------------------------------VERIFY USER: WORKS-----------------------------------------------------------
+@app.route("/verifyuser", methods=["POST"])
+def verifyuser():
     data = request.get_json() or {}
 
     wallet = data.get("wallet")
-    print(wallet)
     link = data.get("profile_link")
 
+    #conditions
     if not wallet:
         return jsonify({"valid": False, "reason": "Wallet missing"}), 400
-
     if not link:
         return jsonify({"valid": False, "reason": "Profile link missing"}), 400
-
-    if "github.com" not in link:
-        return jsonify({"valid": False, "reason": "Not a GitHub link"}), 400
+    if not ("github.com" in link or "linkedin.com" in link):
+        return jsonify({"valid": False, "reason": "Not a valid link"}), 400
 
     try:
         r = requests.get(link, timeout=10, headers={"User-Agent": "CredChainVerifier/1.0"})
@@ -175,10 +173,33 @@ def verify_freelancer():
     PROFILES[w]["github"] = link
     save_profiles()
 
+    print("Github Link Verified by Backend")
     return jsonify({"valid": True})
 
+#-----------------------------------------------------------PROJECT HASHING: WORKS-----------------------------------------------------------
+@app.route("/hash_project", methods=["POST"])
+def hash_project():
+    data = request.get_json()
+    link=data.get("link")
 
-#-----------------------------------------------------------ADD PROJECT-----------------------------------------------------------
+    # Normalize GitHub link
+    if "github.com" in link and "raw.githubusercontent.com" not in link:
+        link = link.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+
+    # Fetch content & hash
+    try:
+        r = requests.get(link, timeout=12)
+        if r.status_code != 200:
+            return jsonify({"error": "provided link not reachable"}), 400
+        content = r.content
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    h = hashlib.sha256(content).hexdigest()
+    print("Hash of the Project: ",h)
+    return jsonify({"hash": h})
+
+#-----------------------------------------------------------ADD PROJECT: CHECK-----------------------------------------------------------
 @app.route("/submit_project", methods=["POST"])
 def submit_project():
     """Adds a project to the blockchain. Auto-verification is handled inside the smart contract."""
@@ -285,17 +306,24 @@ def submit_review():
 # ----------------------------------------------------------- GET ALL PROJECTS (BUILDER) -----------------------------------------------------------
 @app.route("/get_all_projects/<builder>", methods=["GET"])
 def get_all_projects(builder):
-    """Fetch all projects created by a specific builder (freelancer)."""
+    getsmartcontract()
     try:
+        builder = Web3.to_checksum_address(builder)
+        count = contract.functions.getProjectCount(builder).call()
+        print(count)
+
         count = contract.functions.getProjectCount(builder).call()
         projects = []
+
         for i in range(count):
             p = contract.functions.getProject(builder, i).call()
-            projects.append(p)
 
-        # Format the data into readable JSON
-        formatted_projects = [
-            {
+            # p MUST have 8 elements (0–7)
+            if len(p) != 8:
+                print("ERROR: Unexpected project struct length:", p)
+                continue
+
+            projects.append({
                 "client": p[0],
                 "projectName": p[1],
                 "description": p[2],
@@ -304,19 +332,13 @@ def get_all_projects(builder):
                 "link": p[5],
                 "verified": p[6],
                 "timestamp": p[7]
-            }
-            for p in projects
-        ]
+            })
 
-
-        return jsonify({
-            "builder": builder,
-            "projectCount": len(formatted_projects),
-            "projects": formatted_projects
-        })
+        return jsonify({"builder": builder, "projects": projects})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 #-----------------------------------------------------------GET PROJECT WITH REVIEWS-----------------------------------------------------------

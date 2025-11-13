@@ -6,7 +6,7 @@ let web3;
 let contract;
 let account;
 
-const CONTRACT_ADDRESS = "0xE418eEF83E3226901c15e605774aE7A83b772377";
+const CONTRACT_ADDRESS = "0xeDf137bA1DbB1Bb3c03fc81bDDafb59C78B94422";
 const COMPILED_JSON_PATH = "./static/compiledcccode.json"; // serve this from your static folder
 
 // ---- helper: load ABI from compiled JSON ----
@@ -78,7 +78,7 @@ async function initContract() {
     console.log("[credchain] contract instance created");
 }
 
-// ---- connect and ensure chain + contract inited ----
+//----------------------------------------------------------CONNECT WALLET: WORKS----------------------------------------------------------
 export async function connectWallet() {
     if (!window.ethereum) {
         alert("Install MetaMask!");
@@ -105,9 +105,7 @@ export async function connectWallet() {
 }
 
 
-
-
-// ---- transaction sender with gas estimation and try/catch ----
+//----------------------------------------------------------SIGNING TRANSACTION: WORKS----------------------------------------------------------
 async function sendTx(txObject) {
     if (!account) throw new Error("account not set; call connectWallet() first");
     try {
@@ -128,7 +126,7 @@ async function sendTx(txObject) {
     }
 }
 
-// ---- contract calls ----
+//----------------------------------------------------------VERIFY USER: WORKS----------------------------------------------------------
 export async function verifyUserOnChain() {
     if (!contract || !account) await connectWallet();
     const tx = await sendTx(contract.methods.setUserVerified(account, true));
@@ -137,7 +135,7 @@ export async function verifyUserOnChain() {
 }
 
 
-
+//----------------------------------------------------------ADD PROJECT AND VERIFY----------------------------------------------------------
 // IMPORTANT: when your Solidity function takes a struct `ProjectInput calldata p`
 // web3 expects an object with the struct fields in correct name/order.
 // We'll pass a plain object — make sure Solidity struct keys match these names.
