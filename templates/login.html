@@ -33,7 +33,6 @@
         <div class="p-8">
             <form id="loginForm" class="space-y-6">
                 
-                <!-- === EMPLOYER FORM === -->
                 <div id="employerForm" class="space-y-6 transition-all duration-300 ease-in-out">
                     <div>
                         <label for="employerName" class="block text-sm font-medium text-light-muted mb-2">Employer Name <span class="text-red-500">*</span></label>
@@ -69,9 +68,7 @@
                     </div>
                 </div>
 
-                <!-- === FREELANCER SECTION (WRAPPER) === -->
                 <div id="freelancerSection" class="space-y-8 hidden transition-all duration-300 ease-in-out">
-                    <!-- 1. Freelancer Form Fields -->
                     <div id="freelancerForm" class="space-y-6">
                         <div>
                             <label for="freelancerName" class="block text-sm font-medium text-light-muted mb-2">Freelancer Name <span class="text-red-500">*</span></label>
@@ -109,16 +106,14 @@
                                    class="w-full bg-primary-dark border border-gray-600 text-light rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 placeholder-gray-500">
                         </div>
                         <div>
-                            <label for="phoneNumber" class="block text-sm font-medium text-light-muted mb-2">Phone / Contact Number <span class="text-red-500">*</span></label>
+                            <label for="phoneNumber" class="block text-sm font-medium text-light-muted mb-2">Phone / Contact Number <span class="text-red-500">*</span></heading>
                             <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="+1 234 567 890" required
                                    class="w-full bg-primary-dark border border-gray-600 text-light rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 placeholder-gray-500">
                         </div>
                     </div>
 
-                    <!-- 2. IDENTITY VERIFICATION SECTION (Added here) -->
                     <div class="bg-primary rounded-2xl shadow-lg border border-gray-700 p-8 flex flex-col md:flex-row items-center gap-6">
                         <div class="flex-shrink-0">
-                            <!-- Replaced emoji with Ionicon -->
                             <div class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center text-4xl text-light">
                                 <ion-icon name="logo-github"></ion-icon>
                             </div>
@@ -131,8 +126,7 @@
                                 <input id="profileLink" type="text" placeholder="https://github.com/username" 
                                     class="flex-grow bg-primary-dark border border-gray-600 text-light rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-200 placeholder-gray-500">
                                 
-                                <!-- Added type="button" to prevent form submission -->
-                                <button id="verifyBtn" type="button" class="px-8 py-3 rounded-lg bg-green-600 text-white font-bold shadow-lg hover:bg-green-500 hover:shadow-green-500/50 transform hover:-translate-y-0.5 transition duration-300 ease-in-out whitespace-nowrap flex items-center justify-center">
+                                <button id="verify" type="button" class="px-8 py-3 rounded-lg bg-green-600 text-white font-bold shadow-lg hover:bg-green-500 hover:shadow-green-500/50 transform hover:-translate-y-0.5 transition duration-300 ease-in-out whitespace-nowrap flex items-center justify-center">
                                     <ion-icon name="checkmark-circle-outline" class="text-lg mr-1"></ion-icon>
                                     Verify
                                 </button>
@@ -141,7 +135,6 @@
                     </div>
                 </div>
 
-                <!-- === ACTION BUTTONS (Outside of toggle forms) === -->
                 <button id="connectWalletBtn" type="button" disabled
                         class="w-full py-3 px-4 rounded-lg bg-gray-500 text-white font-bold text-lg 
                                hover:bg-gray-600 transition duration-300 ease-in-out cursor-not-allowed
@@ -150,15 +143,17 @@
                     Connect Wallet
                 </button>
 
-                <a href="#" class="block text-center text-light-muted hover:text-white transition duration-200 ease-in-out">
-                    <button type="submit" class="w-full py-3 px-4 rounded-lg bg-green-600 text-white font-bold text-lg shadow-lg hover:bg-green-500 hover:shadow-green-500/50 transform hover:-translate-y-0.5 transition duration-300 ease-in-out mt-4">
-                        Login
-                    </button>
-                </a>
+                <button type="submit" class="w-full py-3 px-4 rounded-lg bg-green-600 text-white font-bold text-lg shadow-lg hover:bg-green-500 hover:shadow-green-500/50 transform hover:-translate-y-0.5 transition duration-300 ease-in-out mt-4">
+                    Login
+                </button>
+                
             </form>
         </div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+<script type="module" src="{{ url_for('static', filename='js/credchain.js') }}"></script>
 <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+
 {% endblock %}

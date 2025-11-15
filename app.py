@@ -18,7 +18,7 @@ w3 = Web3(Web3.HTTPProvider("https://rpc.api.moonbase.moonbeam.network"))
 chainid=1287
 
 app = Flask(__name__)
-CORS(app) 
+CORS(app, resources={r"/*": {"origins": ["http://localhost:5000", "http://127.0.0.1:5000"]}})
 app.register_blueprint(routes) 
 
 
@@ -28,7 +28,7 @@ def home():
 
 @app.route('/')
 def user():
-    return render_template('index.html')
+    return render_template('home.html')
 
 @app.route('/client')
 def clientpage():
