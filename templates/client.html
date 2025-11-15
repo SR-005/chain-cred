@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+
+  <!-- Your module MUST load before inline code runs -->
   <script type="module" src="/static/js/credchain.js"></script>
+
   <title>CredChain - Client Dashboard</title>
   <style>
     body {
@@ -15,10 +18,7 @@
       margin: 0;
       padding: 30px;
     }
-    h1 {
-      color: #00ffc8;
-      margin-bottom: 10px;
-    }
+    h1 { color: #00ffc8; margin-bottom: 10px; }
     button {
       background-color: #00ffc8;
       color: #000;
@@ -30,9 +30,7 @@
       font-weight: bold;
       transition: 0.2s;
     }
-    button:hover {
-      background-color: #00cba1;
-    }
+    button:hover { background-color: #00cba1; }
     input {
       padding: 8px;
       margin: 5px;
@@ -63,9 +61,7 @@
       padding: 10px;
       border-radius: 8px;
     }
-    a {
-      color: #00ffc8;
-    }
+    a { color: #00ffc8; }
     .already-reviewed {
       background: #002a1f;
       color: #00ffc8;
@@ -77,17 +73,19 @@
     }
   </style>
 </head>
+
 <body>
 
   <h1>CredChain – Client Dashboard</h1>
+
   <button id="connect">🔗 Connect MetaMask</button>
   <div id="addr"></div>
 
-  <h3>Verify Identity (Linkedin)</h3>
-<input id="profileLink" placeholder="https://github.com/username"/>
-<button id="verify">Verify</button>
+  <h3>Verify Identity (LinkedIn)</h3>
+  <input id="profileLink" placeholder="https://linkedin.com/in/..."/>
+  <button id="verify">Verify</button>
 
-    <button id="loadClientProjects">View My Project</button>
+  <button id="loadClientProjects">View My Project</button>
 
   <div class="section">
     <h2>📁 My Assigned Projects + Reviews</h2>
@@ -95,143 +93,140 @@
   </div>
 
 <script>
-let account;
+document.addEventListener("DOMContentLoaded", async () => {
 
-//----------------------------------------------------------CONNECT WALLET: WORKS----------------------------------------------------------
-document.getElementById("connect").onclick = async () => 
-{
-    try {
-        const addr = await window.connectWallet();
-        account = addr;   // ✅ FIX — store wallet for later use
-        document.getElementById("addr").innerText = "Connected: " + addr;
-    } 
-    catch (e) 
-    {
-        console.error("connect error:", e);
-        alert("Connection failed: " + e.message);
-    }
-};
+    // wait for credchain.js module to register window functions
+    await new Promise(r => setTimeout(r, 300));
 
-//----------------------------------------------------------VERIFY USER: WORKS----------------------------------------------------------
-document.getElementById("verify").onclick = async () => 
-{
-    const link = document.getElementById("profileLink").value;
-    loadClientProjects();    //REMOVE IT LATER
-    const backendRes = await fetch("http://localhost:5000/verifyuser", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({wallet: account,  profile_link: link})
-    });
+    let account;
 
-    const backendData = await backendRes.json();
+    // ----------------------------------------------------------
+    // CONNECT WALLET
+    // ----------------------------------------------------------
+    document.getElementById("connect").onclick = async () => {
+        try {
+            const addr = await window.connectWallet();  // from credchain.js
+            account = addr;
+            document.getElementById("addr").innerText = "Connected: " + addr;
+        } catch (e) {
+            alert("Connection failed: " + e.message);
+        }
+    };
 
-    if (!backendData.valid) 
-    {
-        alert("GitHub validation failed: " + backendData.reason);
-        return;
-    }
+    // ----------------------------------------------------------
+    // VERIFY USER
+    // ----------------------------------------------------------
+    document.getElementById("verify").onclick = async () => {
+        const link = document.getElementById("profileLink").value;
 
-    const { wallet, tx } = await window.verifyUserOnChain();
-    console.log("Verified wallet:", wallet);
-    alert("Verified On Chain!\nWallet: " + wallet + "\nTx: " + tx.transactionHash);
-    
-};
+        const backendRes = await fetch("http://localhost:5000/verifyuser", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({wallet: account, profile_link: link})
+        });
 
-// -------- Automatically Load All Projects + Reviews for Connected Client --------
-async function loadClientProjects() {
-  try {
-    document.getElementById('projects').innerText = "Fetching your projects...";
+        const backendData = await backendRes.json();
 
-    const projectsRes = await fetch(`http://localhost:5000/get_projects_for_client/${account}`);
-    const projectsData = await projectsRes.json();
-
-    if (!projectsData.length) {
-      document.getElementById('projects').innerText = "No projects found for this client wallet.";
-      return;
-    }
-
-    let html = "";
-    let projectCount = 0;
-
-    // For each project, get full details + reviews
-    for (const [index, proj] of projectsData.entries()) {
-      const builder = proj.builder;
-      const idx = proj.index ?? index;
-
-      try {
-        const detailRes = await fetch(
-          `http://localhost:5000/get_project_with_reviews?builder=${builder}&index=${idx}`
-        );
-        const detail = await detailRes.json();
-        projectCount++;
-
-        // Check if this client has already submitted a review
-        let hasReviewed = false;
-        if (detail.reviews && Array.isArray(detail.reviews)) {
-          hasReviewed = detail.reviews.some(r => r.reviewer?.toLowerCase() === account.toLowerCase());
+        if (!backendData.valid) {
+            alert("Validation failed: " + backendData.reason);
+            return;
         }
 
-        html += `
-        <div class="project-card" id="project-${builder}-${idx}">
-          <h3>Project #${projectCount}</h3>
-          <b>Builder:</b> ${builder}<br>
-          <b>Client:</b> ${detail.client}<br>
-          <b>Link:</b> <a href="${detail.link}" target="_blank">${detail.link}</a><br>
-          <b>Verified:</b> ${detail.verified ? "✅ Yes" : "❌ No"}<br>
-          <b>Project Hash:</b> ${detail.projectHash}<br>
-          <b>Reviews:</b><br>
-          <pre style="background:#0e0e0e; color:#0f0; padding:8px; border-radius:8px;">${JSON.stringify(detail.reviews, null, 2)}</pre>
-        `;
+        const { wallet, tx } = await window.verifyUserOnChain();
+        alert("Verified On Chain!\nWallet: " + wallet + "\nTx: " + tx.transactionHash);
+    };
 
-        if (!hasReviewed) {
-          // Show review form only if not yet reviewed by this client
-          html += `
-            <div class="review-form">
-              <h4>Leave a Review:</h4>
-              <input id="rating-${builder}-${idx}" type="number" placeholder="Rating (1–5)" min="1" max="5" />
-              <input id="comment-${builder}-${idx}" placeholder="Comment Hash / Feedback" />
-              <button onclick="submitReview('${builder}', ${idx})">Submit Review</button>
-            </div>`;
-        } else {
-          html += `
-            <div class="already-reviewed">✅ You have already reviewed this project.</div>`;
+    // ----------------------------------------------------------
+    // LOAD PROJECTS
+    // ----------------------------------------------------------
+    async function loadClientProjects() {
+        document.getElementById("projects").innerText = "Fetching your projects...";
+
+        const projectsRes = await fetch(`http://localhost:5000/get_projects_for_client/${account}`);
+        const projectsData = await projectsRes.json();
+
+        if (!projectsData.length) {
+            document.getElementById("projects").innerText = "No projects found for this client wallet.";
+            return;
         }
 
-        html += `</div>`;
-      } catch (err) {
-        console.error(`Error fetching details for ${builder}`, err);
-      }
+        let html = "";
+        let projectCount = 0;
+
+        for (const [index, proj] of projectsData.entries()) {
+
+            const builder = proj.freelancer;
+            const idx = proj.index ?? index;
+
+            const detailRes = await fetch(
+              `http://localhost:5000/get_project_with_reviews?builder=${builder}&index=${idx}`
+            );
+            const detail = await detailRes.json();
+
+            projectCount++;
+
+            let hasReviewed = false;
+            if (detail.reviews && Array.isArray(detail.reviews)) {
+                hasReviewed = detail.reviews.some(
+                    r => r.reviewer?.toLowerCase() === account.toLowerCase()
+                );
+            }
+
+            html += `
+            <div class="project-card">
+              <h3>Project #${projectCount}</h3>
+              <b>Builder:</b> ${builder}<br>
+              <b>Description:</b> ${proj.description}<br>
+              <b>Link:</b> <a href="${proj.link}" target="_blank">${proj.link}</a><br>
+              <b>Project Hash:</b> ${proj.projectHash}<br>
+
+              <b>Reviews:</b>
+              <pre>${JSON.stringify(detail.reviews, null, 2)}</pre>
+            `;
+
+            if (!hasReviewed) {
+                html += `
+                <div class="review-form">
+                  <h4>Leave a Review:</h4>
+                  <input id="rating-${builder}-${idx}" type="number" placeholder="Rating (1–5)" min="1" max="5">
+                  <input id="comment-${builder}-${idx}" placeholder="Comment Hash / Feedback">
+                  <button onclick="submitReview('${builder}', ${idx})">Submit Review</button>
+                </div>`;
+            } else {
+                html += `<div class="already-reviewed">You already reviewed this project.</div>`;
+            }
+
+            html += `</div>`;
+        }
+
+        document.getElementById("projects").innerHTML = html;
     }
 
-    document.getElementById('projects').innerHTML = html;
+    document.getElementById("loadClientProjects").onclick = loadClientProjects;
 
-  } catch (err) {
-    console.error(err);
-    document.getElementById('projects').innerText = "Error loading projects.";
-  }
-}
-document.getElementById("loadClientProjects").onclick = loadClientProjects;
+    // ----------------------------------------------------------
+    // SUBMIT REVIEW
+    // ----------------------------------------------------------
+    window.submitReview = async (freelancer, projectIndex) => {
+        const rating = parseInt(document.getElementById(`rating-${freelancer}-${projectIndex}`).value);
+        const comment_hash = document.getElementById(`comment-${freelancer}-${projectIndex}`).value.trim();
 
-// -------- Submit Review for a Specific Project --------
-async function submitReview(freelancer, projectIndex) {
-  if (!account) return alert('Connect wallet first');
-  const rating = parseInt(document.getElementById(`rating-${freelancer}-${projectIndex}`).value);
-  const comment_hash = document.getElementById(`comment-${freelancer}-${projectIndex}`).value.trim();
+        if (isNaN(rating)) return alert("Enter valid rating");
 
-  if (isNaN(rating)) return alert("Enter a valid rating (1–5)");
+        const res = await fetch('http://localhost:5000/submit_review', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({freelancer, project_index: projectIndex, rating, comment_hash})
+        });
 
-  const res = await fetch('http://localhost:5000/submit_review', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({freelancer, project_index: projectIndex, rating, comment_hash})
-  });
+        const data = await res.json();
+        if (data.error) alert("❌ " + data.error);
+        else alert("Review submitted!\nTX: " + data.tx);
 
-  const data = await res.json();
-  if (data.error) alert(`❌ ${data.error}`);
-  else alert(`✅ Review submitted for ${freelancer} (Project ${projectIndex})\nTX: ${data.tx}`);
-  
-  loadClientProjects(); // Refresh to hide review form
-}
+        loadClientProjects();
+    };
+
+});
 </script>
 
 </body>

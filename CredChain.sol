@@ -125,20 +125,11 @@ contract CredChain is ERC721URIStorage, Ownable {
     // ------------------------------------------------------------
     // Get project + reviews
     // ------------------------------------------------------------
-    function getProjectWithReviews(address user, uint index)
+    function getProjectReviews(address user, uint index)
         external
         view
-        returns (
-            address client,
-            string memory projectHash,
-            string memory link,
-            bool verified,
-            Review[] memory reviews
-        )
+        returns (Review[] memory reviews)
     {
-        Project storage p = userProjects[user][index];
-
-        // Count matching reviews
         uint count = 0;
         for (uint i = 0; i < userReviews[user].length; i++) {
             if (userReviews[user][i].projectIndex == index) {
@@ -155,8 +146,9 @@ contract CredChain is ERC721URIStorage, Ownable {
             }
         }
 
-        return (p.client, p.projectHash, p.link, p.verified, matched);
+        return matched;
     }
+
 
     // ✅ NEW — Get all projects of a user (builder)
     function getAllProjects(address user) external view returns (Project[] memory) {

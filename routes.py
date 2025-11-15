@@ -3,6 +3,7 @@ import sqlite3
 
 routes = Blueprint('routes', __name__)
 
+
 @routes.route('/about')
 def about():
     return render_template('about.html')

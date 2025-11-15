@@ -110,12 +110,12 @@ def getsmartcontract():                                  #deployment function ca
         out.write(";")
 
     global contract
-    contract=w3.eth.contract(address="0xeDf137bA1DbB1Bb3c03fc81bDDafb59C78B94422", abi=abi)
+    contract=w3.eth.contract(address="0xCCc0F45E8bE87022ea3E553BdD2f64cD6aAeed79", abi=abi)
 
 #-----------------------------------------------------------CALL FUNCTIONS-----------------------------------------------------------
 def callfeature(feature):
     print("Function Call Recieved!!")
-    balance = w3.eth.get_balance("wallet")
+    balance = w3.eth.get_balance(Web3.to_checksum_address(wallet))
     print("Balance:", w3.from_wei(balance, "ether"), "DEV")
 
     
@@ -144,8 +144,9 @@ def owner_account():
 #-----------------------------------------------------------VERIFY USER: WORKS-----------------------------------------------------------
 @app.route("/verifyuser", methods=["POST"])
 def verifyuser():
+    
     data = request.get_json() or {}
-
+    global wallet
     wallet = data.get("wallet")
     link = data.get("profile_link")
 
@@ -265,7 +266,7 @@ def submit_project():
         "index": index
     })
 
-# ----------------------------------------------------------- GET ALL PROJECTS (BUILDER) -----------------------------------------------------------
+# -----------------------------------------------------------GET ALL PROJECTS(FREELANCER): WORKING-----------------------------------------------------------
 @app.route("/get_all_projects/<builder>", methods=["GET"])      #from freelancer side
 def get_all_projects(builder):
     getsmartcontract()
@@ -302,7 +303,7 @@ def get_all_projects(builder):
         return jsonify({"error": str(e)}), 500
 
 
-#-----------------------------------------------------------CLIENT PROJECTS-----------------------------------------------------------
+#-----------------------------------------------------------GET ALL PROJECTS(CLIENT): WORKING-----------------------------------------------------------
 @app.route("/get_projects_for_client/<wallet>")
 def get_projects_for_client(wallet):
     projects = []
@@ -329,6 +330,7 @@ def get_projects_for_client(wallet):
 #-----------------------------------------------------------REVIEW-----------------------------------------------------------
 @app.route("/submit_review", methods=["POST"])
 def submit_review():
+    getsmartcontract()
     data = request.get_json()
     freelancer = data.get("freelancer")
     project_index = int(data.get("project_index"))
@@ -344,8 +346,6 @@ def submit_review():
     )
     receipt = callfeature(fn)
     return jsonify({"tx": receipt.transactionHash.hex()})
-
-
 
 
 #-----------------------------------------------------------GET PROJECT WITH REVIEWS-----------------------------------------------------------
@@ -364,10 +364,6 @@ def get_project_with_reviews():
             index
         ).call()
 
-        client = result[0]
-        projectHash = result[1]
-        link = result[2]
-        verified = result[3]
         reviews_raw = result[4]
 
         # Format reviews
@@ -382,12 +378,7 @@ def get_project_with_reviews():
         ]
 
         return jsonify({
-            "builder": builder,
-            "index": index,
-            "client": client,
-            "projectHash": projectHash,
-            "link": link,
-            "verified": verified,
+
             "reviews": reviews
         })
 
@@ -461,7 +452,7 @@ def create_profile():
     save_profiles()
     return jsonify({"status": "Profile saved", "wallet": wallet})
 
-# ---------------- Get Freelancer Profile ----------------
+# -----------------------------------------------------------GET PROFILE(FREELANCER): WORKING-----------------------------------------------------------
 @app.route("/get_profile/<wallet>", methods=["GET"])
 def get_profile(wallet):
     wallet = wallet.lower()
