@@ -200,7 +200,7 @@ async function loadBuildersJson() {
         const res = await fetch("/builders.json");   // NOW WORKS
         if (!res.ok) throw new Error("builders.json not found");
         const data = await res.json();
-        return data.builders || [];
+        return Array.isArray(data) ? data : (data.builders || []);
     } catch (err) {
         console.error("Failed to load builders.json:", err);
         return [];
@@ -211,12 +211,15 @@ async function loadBuildersJson() {
 export async function getProjectsForClient(wallet) {
     if (!contract) await initContract();
 
-    wallet = web3.utils.toChecksumAddress(wallet);
+    wallet = web3.utils.toChecksumAddress(account);
 
     let projects = [];
     const builders = await loadBuildersJson();
+    console.log("Loaded builders:", builders);
+
     // IMPORTANT: You MUST have a list of all known builders
     for (const builder of builders) {
+        
         const builderChecksum = web3.utils.toChecksumAddress(builder);
 
         const count = await contract.methods.getProjectCount(builderChecksum).call();
@@ -247,10 +250,39 @@ export async function getProjectsForClient(wallet) {
 }
 
 
+
+export async function getProjectReviewsFromChain(builder, index) {
+    if (!contract) await initContract();
+
+    try {
+        builder = web3.utils.toChecksumAddress(builder);
+
+        const reviews = await contract.methods
+            .getProjectReviews(builder, index)
+            .call();
+
+        return reviews.map(r => ({
+            reviewer: r.reviewer,
+            projectIndex: r.projectIndex,
+            rating: r.rating,
+            commentHash: r.commentHash
+        }));
+
+    } catch (err) {
+        console.error("getProjectReviewsFromChain ERROR:", err);
+        return [];
+    }
+}
+
+
+
 window.connectWallet = connectWallet;
 window.verifyUserOnChain = verifyUserOnChain;
 window.addProjectOnChain = addProjectOnChain;
 window.submitReviewOnChain = submitReviewOnChain;
 window.getAllProjectsFromChain = getAllProjectsFromChain;
+window.getProjectsForClient = getProjectsForClient;
+window.getProjectReviewsFromChain = getProjectReviewsFromChain;
+window.cc_account = () => account;
 
 console.log("[credchain] module loaded");

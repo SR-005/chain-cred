@@ -148,12 +148,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     // LOAD PROJECTS
     // ----------------------------------------------------------
     async function loadClientProjects() {
+        if (!account) {
+          alert("Connect wallet first!");
+          return;
+        }
         document.getElementById("projects").innerText = "Fetching your projects...";
 
-        const projectsRes = await fetch(`http://localhost:5000/get_projects_for_client/${account}`);
-        const projectsData = await projectsRes.json();
+        // 🔥 Load projects from blockchain
+        const projectsData = await window.getProjectsForClient(account);
 
-        if (!projectsData.length) {
+        if (!projectsData || projectsData.length === 0) {
             document.getElementById("projects").innerText = "No projects found for this client wallet.";
             return;
         }
@@ -162,50 +166,51 @@ document.addEventListener("DOMContentLoaded", async () => {
         let projectCount = 0;
 
         for (const [index, proj] of projectsData.entries()) {
-
             const builder = proj.freelancer;
             const idx = proj.index ?? index;
 
-            const detailRes = await fetch(
-              `http://localhost:5000/get_project_with_reviews?builder=${builder}&index=${idx}`
-            );
-            const detail = await detailRes.json();
+            // 🔥 Get reviews from blockchain
+            const detailReviews = await window.getProjectReviewsFromChain(builder, idx);
 
             projectCount++;
 
-            let hasReviewed = false;
-            if (detail.reviews && Array.isArray(detail.reviews)) {
-                hasReviewed = detail.reviews.some(
-                    r => r.reviewer?.toLowerCase() === account.toLowerCase()
-                );
-            }
+            const hasReviewed = detailReviews.some(
+                r => r.reviewer.toLowerCase() === account.toLowerCase()
+            );
 
             html += `
             <div class="project-card">
-              <h3>Project #${projectCount}</h3>
-              <b>Builder:</b> ${builder}<br>
-              <b>Description:</b> ${proj.description}<br>
-              <b>Link:</b> <a href="${proj.link}" target="_blank">${proj.link}</a><br>
-              <b>Project Hash:</b> ${proj.projectHash}<br>
+                <h3>Project #${projectCount}</h3>
 
-              <b>Reviews:</b>
-              <pre>
-                ${detail.reviews
-                    .map(r => `⭐ Rating: ${r.rating}\n🔗 Comment Hash: ${r.commentHash}`)
-                    .join("\n\n")}
-                </pre>
-            `;
+                <b>Builder:</b> ${builder}<br>
+                <b>Description:</b> ${proj.description}<br>
+                <b>Languages:</b> ${proj.languages}<br>
+                <b>Link:</b> <a href="${proj.link}" target="_blank">${proj.link}</a><br>
+                <b>Hash:</b> ${proj.projectHash}<br>
+                <hr>
 
+                <b>Reviews:</b>
+                <pre>
+                ${detailReviews.length > 0 ?
+                detailReviews.map(r => 
+                `⭐ Rating: ${r.rating}
+                🔗 Comment: ${r.commentHash}`
+                ).join("\n\n")
+                : "No reviews yet."}
+                            </pre>
+                        `;
+
+            // review form
             if (!hasReviewed) {
                 html += `
                 <div class="review-form">
-                  <h4>Leave a Review:</h4>
-                  <input id="rating-${builder}-${idx}" type="number" placeholder="Rating (1–5)" min="1" max="5">
-                  <input id="comment-${builder}-${idx}" placeholder="Comment Hash / Feedback">
-                  <button onclick="submitReview('${builder}', ${idx})">Submit Review</button>
+                    <h4>Leave a Review</h4>
+                    <input id="rating-${builder}-${idx}" type="number" min="1" max="5" placeholder="Rating 1-5">
+                    <input id="comment-${builder}-${idx}" placeholder="Comment Hash">
+                    <button onclick="submitReview('${builder}', ${idx})">Submit Review</button>
                 </div>`;
             } else {
-                html += `<div class="already-reviewed">You already reviewed this project.</div>`;
+                html += `<div class="already-reviewed">✔ You already reviewed this project</div>`;
             }
 
             html += `</div>`;
@@ -215,6 +220,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     document.getElementById("loadClientProjects").onclick = loadClientProjects;
+
 
     // ----------------------------------------------------------
     // SUBMIT REVIEW

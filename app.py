@@ -28,7 +28,7 @@ def home():
 
 @app.route('/')
 def user():
-    return render_template('home.html')
+    return render_template('index.html')
 
 @app.route('/client')
 def clientpage():
@@ -113,7 +113,7 @@ def getsmartcontract():                                  #deployment function ca
     contract=w3.eth.contract(address="0xF4F2850761BDdDC14f763299622c49F669945e05", abi=abi)
 
 #-----------------------------------------------------------CALL FUNCTIONS-----------------------------------------------------------
-def callfeature(feature):
+'''def callfeature(feature):
     print("Function Call Recieved!!")
     balance = w3.eth.get_balance(Web3.to_checksum_address(wallet))
     print("Balance:", w3.from_wei(balance, "ether"), "DEV")
@@ -135,7 +135,7 @@ def callfeature(feature):
     print("Transcation hash:", feature_transactionhash.hex())
 
     feature_transactionreceipt=w3.eth.wait_for_transaction_receipt(feature_transactionhash)   #fetch the transaction receipt
-    return feature_transactionreceipt
+    return feature_transactionreceipt'''
 
 
 def owner_account():
@@ -182,6 +182,7 @@ def verifyuser():
 def hash_project():
     data = request.get_json()
     link=data.get("link")
+    wallet=data.get("wallet")
 
     # Normalize GitHub link
     if "github.com" in link and "raw.githubusercontent.com" not in link:
@@ -197,12 +198,11 @@ def hash_project():
         return jsonify({"error": str(e)}), 400
 
     h = hashlib.sha256(content).hexdigest()
+        # Track builder for dashboard use
+    if wallet and wallet not in ["null", "None"]:
+        KNOWN_BUILDERS.add(wallet)
+        save_builders()
     print("Hash of the Project: ",h)
-
-    # Track builder for dashboard use
-    KNOWN_BUILDERS.add(wallet)
-    save_builders()
-
 
 
     return jsonify({"hash": h})
@@ -210,10 +210,10 @@ def hash_project():
 #redirect to BUILDERS.JSON
 @app.route("/builders.json")
 def send_builders():
-    return send_from_directory(".", "builders.json")
+    return send_from_directory(".", "builders.json", mimetype='application/json')
 
 #-----------------------------------------------------------GET ALL PROJECTS(CLIENT): WORKING-----------------------------------------------------------
-@app.route("/get_projects_for_client/<wallet>")
+'''@app.route("/get_projects_for_client/<wallet>")
 def get_projects_for_client(wallet):
     projects = []
     getsmartcontract()
@@ -295,7 +295,7 @@ def get_project_with_reviews():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
+'''
 # ----------------------------------------------------------- GET ALL REVIEWS (BUILDER) -----------------------------------------------------------
 @app.route("/get_all_reviews/<builder>", methods=["GET"])
 def get_all_reviews(builder):
