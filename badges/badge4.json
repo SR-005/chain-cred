@@ -1,7 +1,7 @@
 {
   "name": "Platinum Contributor Badge",
   "description": "Awarded for verifying a project on the platform.",
-  "image": "ipfs://bafybeibcwukavjmd2k7zsuxhts3ltexiqh6n4jk7m4ctdvupkt43yjiunq/badge4.png",
+  "image": "ipfs://bafybeifvaivks2gpna7fmxkyzjvptdlh2fbjggidt4yyqxov4v5225cxea/badge4.png",
   "attributes": [
     { "trait_type": "Role", "value": "Contributor" },
     { "trait_type": "Level", "value": "Platinum" }
