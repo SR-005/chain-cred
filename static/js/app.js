@@ -37,10 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } 
         
         // === SCENARIO 3: LOGGED IN AS FREELANCER (Default) ===
-        else {
-            // Keep "JOBS" pointing to job board
-            navJobs.innerText = "JOBS";
-            navJobs.href = "/Jobs"; 
+        else { 
             
             // Point Dashboard to Freelancer Dashboard
             navDashboard.href = "/Fdashboard";

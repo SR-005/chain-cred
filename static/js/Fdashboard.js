@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = '/wallet-login'; 
         return; 
     }
+    
+    // Initial Load
     loadDashboardData();
 
     // Logout Logic
@@ -49,9 +51,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if(data.status === "success") {
                     alert("Project Added Successfully!\nTx Hash: " + data.tx_hash);
+                    
+                    // Hide submission modal
                     document.getElementById('submitProjectModal').classList.add('hidden');
                     projectForm.reset();
-                    loadDashboardData(); // Refresh list
+                    
+                    // Reload data AND get the new project count
+                    const newProjectCount = await loadDashboardData();
+                    
+                    // Check for Badge Milestones (3, 5, 7, 10)
+                    checkAndShowBadge(newProjectCount);
+
                 } else {
                     alert("Error: " + data.error);
                 }
@@ -65,11 +75,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+/**
+ * Checks the project count and shows the badge modal if a milestone is met.
+ */
+function checkAndShowBadge(count) {
+    const milestones = [3, 5, 7, 10]; // Matches your Smart Contract logic
+    
+    if (milestones.includes(count)) {
+        // Update the text in the modal
+        document.getElementById('milestone-count').innerText = count;
+        
+        // Show the modal
+        const modal = document.getElementById('badgeModal');
+        modal.classList.remove('hidden');
+        
+        // Optional: Play a sound or trigger confetti here
+        console.log("Badge Milestone Reached:", count);
+    }
+}
+
 async function loadDashboardData() {
     const nameEl = document.getElementById('profile-name');
     const bioEl = document.getElementById('profile-bio');
     const avatarEl = document.getElementById('profile-avatar-initials');
     const projectsListEl = document.getElementById('projects-list');
+
+    let projectCount = 0; // Default count
 
     try {
         // 1. Load Profile
@@ -84,11 +115,12 @@ async function loadDashboardData() {
             nameEl.innerText = "Profile Not Found";
         }
 
-        // 2. Load Projects (using new routes.py endpoint)
+        // 2. Load Projects
         const projRes = await fetch(`/get_all_projects/${account}`);
         if(projRes.ok) {
             const data = await projRes.json();
             const projects = data.projects || [];
+            projectCount = projects.length; // Update count
             
             if(projects.length > 0) {
                 projectsListEl.innerHTML = projects.map((p, index) => `
@@ -108,4 +140,6 @@ async function loadDashboardData() {
     } catch(err) {
         console.error(err);
     }
+
+    return projectCount; // Return the count for the badge checker
 }
