@@ -253,5 +253,86 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Run the validity check once on load
     checkFormValidity();
+    // ... (previous code remains the same)
 
+    /**
+     * Event listener for the final "Login" button (form submission).
+     */
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); 
+
+            if (!account) { 
+                alert('Please connect your wallet first!');
+                return;
+            }
+
+            const formData = new FormData(loginForm);
+            const data = Object.fromEntries(formData.entries());
+            data.wallet = account;
+
+            const selectedRole = document.querySelector('input[name="role"]:checked').value;
+
+            // === SAVE THE ROLE TO LOCAL STORAGE ===
+            localStorage.setItem('userRole', selectedRole); 
+            localStorage.setItem('userWalletAddress', account);
+            // =======================================
+
+            if (selectedRole === 'freelancer') {
+                try {
+                    const profileData = {
+                        wallet: data.wallet,
+                        name: data.freelancerName,
+                        linkedin: data.freelancerLinkedIn,
+                        skills: data.skills.split(',').map(s => s.trim()), 
+                        email: data.emailAddress,
+                        phone: data.phoneNumber
+                    };
+
+                    const response = await fetch('/create_profile', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(profileData)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        alert('Profile saved successfully! Redirecting to dashboard.');
+                        window.location.href = '/Fdashboard'; 
+                    } else {
+                        alert('Error saving profile: ' + (result.error || 'Unknown error'));
+                    }
+
+                } catch (err) {
+                    console.error(err);
+                    alert('A frontend error occurred.');
+                }
+
+            } else if (selectedRole === 'employer') {
+                 // Send employer data to backend
+                 const employerData = {
+                    wallet: data.wallet,
+                    name: data.employerName,
+                    company: data.companyName,
+                    email: "", // Add email field to employer form if needed
+                    phone: ""  // Add phone field to employer form if needed
+                };
+
+                try {
+                    await fetch('/save_client_profile', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(employerData)
+                    });
+                    
+                    alert('Employer login successful! Redirecting to dashboard.');
+                    window.location.href = '/Edashboard';
+                } catch(err) {
+                    console.error(err);
+                }
+            }
+        });
+    }
+// ... (rest of code)
 });
