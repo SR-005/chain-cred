@@ -51,11 +51,12 @@ def get_all_freelancers():
             "skills": profile.get("skills", []),
             "github": profile.get("github", ""),
             "linkedin": profile.get("linkedin", ""),
+            "email": profile.get("email", ""),
+            "phone": profile.get("phone", "")
+            # ===========================
         })
         
     return jsonify(results)
-
-
 #-----------------------------------------------------------JSON FILES-----------------------------------------------------------
 BUILDERS_FILE = "builders.json"
 def load_builders():
