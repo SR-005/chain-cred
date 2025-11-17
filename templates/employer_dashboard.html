@@ -87,7 +87,8 @@
         <button onclick="submitReview()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded transition duration-200">Submit Review</button>
     </div>
 </div>
-
+<script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+<script type="module" src="{{ url_for('static', filename='js/credchain.js') }}"></script>
 <script src="{{ url_for('static', filename='js/employer_dashboard.js') }}"></script>
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>

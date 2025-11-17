@@ -1,7 +1,7 @@
 // employer_dashboard.js
 const rawAccount = localStorage.getItem('userWalletAddress');
 const account = rawAccount ? rawAccount.toLowerCase() : null;
-let currentReviewData = null; 
+let currentReviewData = null; // Stores data for modal
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!account) {
@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         // === FETCH DATA IN PARALLEL ===
-        // This ensures the loader stays until BOTH profile and projects are ready
         await Promise.all([
             loadEmployerProfile(),
             loadClientProjects()
@@ -31,13 +30,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Logout Logic
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-        if(confirm("Are you sure you want to disconnect?")) {
-            localStorage.removeItem('userWalletAddress');
-            localStorage.removeItem('userRole');
-            window.location.href = '/wallet-login';
-        }
-    });
+    const logoutBtn = document.getElementById('logoutBtn');
+    if(logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            if(confirm("Are you sure you want to disconnect?")) {
+                localStorage.removeItem('userWalletAddress');
+                localStorage.removeItem('userRole');
+                window.location.href = '/wallet-login';
+            }
+        });
+    }
 });
 
 /**
@@ -112,7 +114,7 @@ async function loadClientProjects() {
     }
 }
 
-// === MODAL LOGIC (Unchanged) ===
+// === MODAL LOGIC ===
 
 window.openReviewModal = (freelancer, index) => {
     currentReviewData = { freelancer, index };
@@ -124,6 +126,7 @@ window.closeReviewModal = () => {
     currentReviewData = null;
 };
 
+// === FIXED SUBMIT REVIEW FUNCTION ===
 window.submitReview = async () => {
     if (!currentReviewData) return;
 
@@ -136,35 +139,45 @@ window.submitReview = async () => {
         return;
     }
 
+    // 1. Check if web3 script is loaded
+    if (typeof window.submitReviewOnChain !== 'function') {
+        alert("Wallet connection script not loaded. Please refresh.");
+        return;
+    }
+
+    // 2. Disable button
     const originalText = btn.innerText;
-    btn.innerText = "Submitting...";
+    btn.innerText = "Confirm in Wallet...";
     btn.disabled = true;
 
-    const body = {
-        freelancer: currentReviewData.freelancer,
-        project_index: currentReviewData.index,
-        rating: rating,
-        comment_hash: comment 
-    };
-
     try {
-        const res = await fetch('/submit_review', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        const data = await res.json();
+        // 3. Call Frontend Web3 Function (MetaMask)
+        const receipt = await window.submitReviewOnChain(
+            currentReviewData.freelancer,
+            currentReviewData.index,
+            rating,
+            comment
+        );
 
-        if (data.status === "success") {
-            alert("Review Submitted Successfully!\nTx Hash: " + data.tx_hash);
-            closeReviewModal();
-            document.getElementById('reviewRating').value = '';
-            document.getElementById('reviewComment').value = '';
-        } else {
-            alert("Error: " + data.error);
-        }
+        console.log("Review Receipt:", receipt);
+
+        // 4. Success
+        alert("Review Submitted Successfully!\nTx Hash: " + receipt.transactionHash);
+        closeReviewModal();
+        
+        // Clear inputs
+        document.getElementById('reviewRating').value = '';
+        document.getElementById('reviewComment').value = '';
+
     } catch (err) {
-        alert("Review failed: " + err.message);
+        console.error(err);
+        if(err.message.includes("User denied")) {
+            alert("Transaction rejected.");
+        } else if (err.message.includes("Already reviewed")) {
+            alert("You have already reviewed this project!");
+        } else {
+            alert("Review failed: " + err.message);
+        }
     } finally {
         btn.innerText = originalText;
         btn.disabled = false;

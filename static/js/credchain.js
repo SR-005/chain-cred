@@ -142,9 +142,47 @@ export async function submitReviewOnChain(freelancer, index, rating, commentHash
     return sendTx(contract.methods.submitReview(freelancer, index, rating, commentHash));
 }
 
+
+//----------------------------------------------------------GET PROJECTS: FREELANCER----------------------------------------------------------
+export async function getAllProjectsFromChain(builder) {
+    if (!contract) await initContract();
+
+    try {
+        builder = web3.utils.toChecksumAddress(builder);
+
+        // Get total project count
+        const count = await contract.methods.getProjectCount(builder).call();
+        console.log("Project count:", count);
+
+        let projects = [];
+
+        for (let i = 0; i < count; i++) {
+            const p = await contract.methods.getProject(builder, i).call();
+
+
+            projects.push({
+                client: p[0],
+                projectName: p[1],
+                description: p[2],
+                languages: p[3],
+                projectHash: p[4],
+                link: p[5],
+                verified: p[6]
+            });
+        }
+
+        return projects; // return only array, not wrapped
+    } catch (err) {
+        console.error("getAllProjectsFromChain ERROR:", err);
+        return [];
+    }
+}
+
+
 // Expose functions to window for use in non-module scripts
 window.connectWallet = connectWallet;
 window.addProjectOnChain = addProjectOnChain;
 window.verifyUserOnChain = verifyUserOnChain;
 window.submitReviewOnChain = submitReviewOnChain;
+window.getAllProjectsFromChain = getAllProjectsFromChain;
 window.cc_account = () => account;
